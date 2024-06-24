@@ -1,2 +1,3 @@
-# repo-teste-fodase
-Este repositório não serve para nada!!
+# descomplicando-sql
+
+Este repositório serve para o curso "descomplicando sql" da LinuxTips.
