@@ -28,7 +28,8 @@ SELECT *
 
 FROM silver.olist.cliente
 
-WHERE descUF IN ('SP', 'RJ')
+WHERE descCidade = 'rio de janeiro'
+OR descUF = 'SP'
 
 -- COMMAND ----------
 
@@ -84,7 +85,7 @@ SELECT *
 
 FROM silver.olist.pedido
 
-WHERE dtEntregue > dtEstimativaEntrega
+WHERE date(dtEntregue) > date(dtEstimativaEntrega)
 
 -- COMMAND ----------
 
@@ -95,7 +96,7 @@ SELECT *
 
 FROM silver.olist.pedido
 
-WHERE datediff(dtEstimativaEntrega, dtEntregue) = 2
+WHERE datediff(date(dtEstimativaEntrega), date(dtEntregue)) = 2
 
 -- COMMAND ----------
 
@@ -130,5 +131,6 @@ SELECT *
 
 FROM silver.olist.pagamento_pedido
 
-WHERE nrParcelas >= 2
-AND vlPagamento < 40
+WHERE descTipoPagamento = 'credit_card'
+AND nrParcelas >= 2
+AND (vlPagamento / nrParcelas) < 40
