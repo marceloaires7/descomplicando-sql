@@ -231,6 +231,6 @@ FROM silver.olist.item_pedido
 
 GROUP BY idProduto
 
-ORDER BY qtVendas DESC
+ORDER BY vlReceita DESC
 
 LIMIT 5
