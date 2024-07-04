@@ -3,16 +3,19 @@
 -- 1. Qual categoria tem mais produtos vendidos?
 
 SELECT t2.descCategoria,
-       SUM(t1.idPedidoItem) AS quantProdutosVendidos
+       COUNT(*) AS qtdCategoria,
+       COUNT(DISTINCT t1.idPedido) AS qtdPedidos
 
 FROM silver.olist.item_pedido AS t1
 
-INNER JOIN silver.olist.produto AS t2
+LEFT JOIN silver.olist.produto AS t2
 ON t1.idProduto = t2.idProduto
 
 GROUP BY t2.descCategoria
 
-ORDER BY quantProdutosVendidos DESC
+ORDER BY qtdCategoria DESC
+
+LIMIT 1
 
 -- COMMAND ----------
 
@@ -20,17 +23,19 @@ ORDER BY quantProdutosVendidos DESC
 -- 2. Qual categoria tem produtos mais caros, em média? E Mediana?
 
 SELECT t2.descCategoria,
-       AVG(t1.vlPreco) AS mediaPreco,
-       PERCENTILE(t1.vlPreco, .5) AS medianaPreco
+       AVG(t1.vlPreco) AS avgPreco,
+       PERCENTILE(t1.vlPreco, .5) AS medianPreco
 
 FROM silver.olist.item_pedido AS t1
 
-INNER JOIN silver.olist.produto AS t2
+LEFT JOIN silver.olist.produto AS t2
 ON t1.idProduto = t2.idProduto
 
 GROUP BY t2.descCategoria
 
-ORDER BY medianaPreco DESC
+ORDER BY avgPreco DESC
+
+LIMIT 1
 
 -- COMMAND ----------
 
@@ -38,7 +43,7 @@ ORDER BY medianaPreco DESC
 -- 3. Qual categoria tem maiores fretes, em média?
 
 SELECT t2.descCategoria,
-       AVG(t1.vlFrete) AS mediaFrete
+       AVG(t1.vlFrete) AS avgFrete
 
 FROM silver.olist.item_pedido AS t1
 
@@ -47,7 +52,9 @@ ON t1.idProduto = t2.idProduto
 
 GROUP BY t2.descCategoria
 
-ORDER BY mediaFrete DESC
+ORDER BY avgFrete DESC
+
+LIMIT 1
 
 -- COMMAND ----------
 
@@ -55,7 +62,9 @@ ORDER BY mediaFrete DESC
 -- 4. Os clientes de qual estado pagam mais frete, em média?
 
 SELECT t3.descUF,
-       AVG(t1.vlFrete) AS mediaFrete
+       SUM(t1.vlFrete) / COUNT(DISTINCT t1.idPedido) AS avgFrete,
+       AVG(t1.vlFrete) AS avgFreteItem,
+       SUM(t1.vlFrete) / COUNT(DISTINCT t2.idCliente) AS avgFreteCliente
 
 FROM silver.olist.item_pedido AS t1
 
@@ -67,7 +76,9 @@ ON t2.idCliente = t3.idCliente
 
 GROUP BY t3.descUF
 
-ORDER BY mediaFrete DESC
+ORDER BY avgFrete DESC
+
+LIMIT 1
 
 -- COMMAND ----------
 
@@ -75,11 +86,12 @@ ORDER BY mediaFrete DESC
 -- 5. Clientes de quais estados avaliam melhor, em média? Proporção de 5?
 
 SELECT t3.descUF,
-       AVG(t1.vlNota) AS mediaNota
+       AVG(t1.vlNota) AS avgNota,
+       AVG(CASE WHEN t1.vlNota = 5 THEN 1 ELSE 0 END) AS prop5
 
 FROM silver.olist.avaliacao_pedido AS t1
 
-LEFT JOIN silver.olist.pedido AS t2
+INNER JOIN silver.olist.pedido AS t2
 ON t1.idPedido = t2.idPedido
 
 LEFT JOIN silver.olist.cliente AS t3
@@ -87,7 +99,9 @@ ON t2.idCliente = t3.idCliente
 
 GROUP BY t3.descUF
 
-ORDER BY mediaNota DESC
+ORDER BY prop5 DESC
+
+LIMIT 1
 
 -- COMMAND ----------
 
@@ -95,19 +109,21 @@ ORDER BY mediaNota DESC
 -- 6. Vendedores de quais estados têm as piores reputações?
 
 SELECT t3.descUF,
-       AVG(t2.vlNota) AS mediaNota
+       AVG(t1.vlNota) AS avgNota
 
-FROM silver.olist.item_pedido AS t1
+FROM silver.olist.avaliacao_pedido AS t1
 
-INNER JOIN silver.olist.avaliacao_pedido AS t2
+INNER JOIN silver.olist.item_pedido AS t2
 ON t1.idPedido = t2.idPedido
 
 LEFT JOIN silver.olist.vendedor AS t3
-ON t1.idVendedor = t3.idVendedor
+ON t2.idVendedor = t3.idVendedor
 
 GROUP BY t3.descUF
 
-ORDER BY mediaNota ASC
+ORDER BY avgNota ASC
+
+LIMIT 1
 
 -- COMMAND ----------
 
@@ -115,16 +131,18 @@ ORDER BY mediaNota ASC
 -- 7. Quais estados de clientes levam mais tempo para a mercadoria chegar?
 
 SELECT t2.descUF,
-       AVG(datediff(t1.dtEntregue, t1.dtEnvio)) AS mediaTempoEntrega
+       AVG(datediff(t1.dtEntregue, t1.dtPedido)) AS avgTempoEntrega
 
 FROM silver.olist.pedido AS t1
 
-INNER JOIN silver.olist.cliente AS t2
+LEFT JOIN silver.olist.cliente AS t2
 ON t1.idCliente = t2.idCliente
+
+WHERE t1.dtEntregue IS NOT NULL
 
 GROUP BY t2.descUF
 
-ORDER BY mediaTempoEntrega DESC
+ORDER BY avgTempoEntrega DESC
 
 -- COMMAND ----------
 
@@ -132,22 +150,24 @@ ORDER BY mediaTempoEntrega DESC
 -- 8. Qual meio de pagamento é mais utilizado por clientes do RJ?
 
 SELECT t3.descUF,
-       t2.descTipoPagamento,
-       COUNT(t2.descTipoPagamento) as qtdTipoPagamento
+       t1.descTipoPagamento,
+       COUNT(DISTINCT t1.idPedido) as qtdTipoPagamento
 
-FROM silver.olist.pedido AS t1
+FROM silver.olist.pagamento_pedido AS t1
 
-INNER JOIN silver.olist.pagamento_pedido AS t2
+INNER JOIN silver.olist.pedido AS t2
 ON t1.idPedido = t2.idPedido
 
 LEFT JOIN silver.olist.cliente AS t3
-ON t1.idCliente = t3.idCliente
+ON t2.idCliente = t3.idCliente
 
 WHERE t3.descUF IN ('RJ')
 
-GROUP BY t2.descTipoPagamento, t3.descUF
+GROUP BY t1.descTipoPagamento, t3.descUF
 
 ORDER BY qtdTipoPagamento DESC
+
+LIMIT 1
 
 -- COMMAND ----------
 
@@ -155,11 +175,11 @@ ORDER BY qtdTipoPagamento DESC
 -- 9. Qual estado sai mais ferramentas?
 
 SELECT t3.descUF,
-       COUNT(t3.descUF) AS qtdFerramentas
+       COUNT(*) AS qtdProdutoVendido
 
 FROM silver.olist.item_pedido AS t1
 
-INNER JOIN silver.olist.produto AS t2
+LEFT JOIN silver.olist.produto AS t2
 ON t1.idProduto = t2.idProduto
 
 LEFT JOIN silver.olist.vendedor AS t3
@@ -169,13 +189,42 @@ WHERE t2.descCategoria LIKE '%ferramenta%'
 
 GROUP BY t3.descUF
 
-ORDER BY qtdFerramentas DESC
+ORDER BY qtdProdutoVendido DESC
+
+LIMIT 1
 
 -- COMMAND ----------
 
 -- DBTITLE 1,Qual estado tem mais compras por cliente?
 -- 10. Qual estado tem mais compras por cliente?
 
-SELECT *
+SELECT t2.descUF,
+       COUNT(DISTINCT t1.idPedido) as qtdPedido,
+       COUNT(DISTINCT t2.idClienteUnico) as qtdCliente,
+       qtdPedido / qtdCliente as avgPedidoCliente
 
-FROM silver.olist.cliente
+FROM silver.olist.pedido as t1
+
+INNER JOIN silver.olist.cliente as t2
+ON t1.idCliente = t2.idCliente
+
+GROUP BY t2.descUF
+
+ORDER BY avgPedidoCliente DESC
+
+-- COMMAND ----------
+
+SELECT t1.idVendedor,
+       COUNT(t1.idVendedor)
+
+FROM silver.olist.item_pedido as t1
+
+INNER JOIN silver.olist.produto as t2
+ON t1.idProduto = t2.idProduto
+
+LEFT JOIN silver.olist.vendedor as t3
+ON t1.idVendedor = t3.idVendedor
+
+WHERE t2.descCategoria = 'pcs'
+
+GROUP BY t1.idVendedor
